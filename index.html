@@ -88,6 +88,40 @@
     </div>
 
     <script>
+let deferredPrompt;
+const btnInstalar = document.getElementById('btnInstalar');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Impede que o mini-infobar padrão do Chrome apareça automaticamente
+  e.preventDefault();
+  // Guarda o evento para acioná-lo depois
+  deferredPrompt = e;
+  // Mostra o seu botão personalizado
+  btnInstalar.style.display = 'block';
+});
+
+btnInstalar.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  // Exibe o prompt nativo de instalação
+  deferredPrompt.prompt();
+  // Espera a escolha do usuário
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    console.log('Usuário aceitou a instalação');
+  }
+  deferredPrompt = null;
+  btnInstalar.style.display = 'none';
+});
+
+// Opcional: esconder o botão se o app já estiver instalado
+window.addEventListener('appinstalled', () => {
+  btnInstalar.style.display = 'none';
+  deferredPrompt = null;
+  console.log('Aplicativo instalado com sucesso!');
+});
+
+    </script>
+    <script>
         // ===== PWA Service Worker =====
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
@@ -299,42 +333,6 @@
 
         // Inicializar
         loadBooks();
-        
-        
-        let deferredPrompt;
-const btnInstalar = document.getElementById('btnInstalar');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Impede que o mini-infobar padrão do Chrome apareça automaticamente
-  e.preventDefault();
-  // Guarda o evento para acioná-lo depois
-  deferredPrompt = e;
-  // Mostra o seu botão personalizado
-  btnInstalar.style.display = 'block';
-});
-
-btnInstalar.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  // Exibe o prompt nativo de instalação
-  deferredPrompt.prompt();
-  // Espera a escolha do usuário
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') {
-    console.log('Usuário aceitou a instalação');
-  }
-  deferredPrompt = null;
-  btnInstalar.style.display = 'none';
-});
-
-// Opcional: esconder o botão se o app já estiver instalado
-window.addEventListener('appinstalled', () => {
-  btnInstalar.style.display = 'none';
-  deferredPrompt = null;
-  console.log('Aplicativo instalado com sucesso!');
-});
-
-        
-        
     </script>
 </body>
 </html>
