@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📖 Meu Caderno de Histórias</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap');
+        body { font-family: 'Merriweather', serif; }
+        .writing-area { min-height: 300px; }
+        .book-card:hover { transform: translateY(-4px); }
+        .book-card { transition: all 0.3s ease; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="bg-amber-50 text-gray-800 min-h-screen">
+    <div class="max-w-2xl mx-auto px-4 py-6 pb-24">
+        
+        <button id="btnInstalar" style="display: none;">Instalar Aplicativo</button>
+
+        <!-- Cabeçalho -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-violet-800">📖 Meu Caderno de Histórias</h1>
+            <p class="text-amber-700 mt-1">Até 5 livros salvos localmente</p>
+        </header>
+
+        <!-- Tela: Lista de Livros -->
+        <section id="booksScreen">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold">Meus Livros</h2>
+                <button id="newBookBtn" class="bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50">
+                    + Novo Livro
+                </button>
+            </div>
+
+            <div id="booksList" class="grid gap-4">
+                <!-- Livros aparecerão aqui -->
+                <div class="text-center py-12 text-amber-600">
+                    <p class="text-4xl mb-3">✏</p>
+                    <p>Nenhum livro ainda. Comece sua primeira história!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tela: Editor -->
+        <section id="editorScreen" class="hidden fade-in">
+            <button id="backBtn" class="text-violet-600 mb-4 flex items-center gap-1 hover:text-violet-800">
+                ← Voltar aos livros
+            </button>
+
+            <input type="text" id="bookTitle" placeholder="Título da história..." 
+                class="w-full text-2xl font-bold bg-transparent border-b-2 border-amber-200 focus:border-violet-500 outline-none pb-2 mb-4">
+            
+            <div class="mb-4">
+                <label class="block text-sm text-amber-700 mb-1">Frase/Título da capa:</label>
+                <input type="text" id="bookSubtitle" placeholder="Ex: As dúvidas sobre nós não são eternas" 
+                    class="w-full bg-transparent border-b border-amber-200 focus:border-violet-400 outline-none pb-1 text-sm">
+            </div>
+
+            <div class="mb-4 flex justify-between items-center">
+                <span id="lastSaved" class="text-xs text-amber-500">Não salvo ainda</span>
+                <div class="flex gap-2">
+                    <button id="exportBtn" class="text-sm text-violet-600 hover:text-violet-800">📤 Exportar</button>
+                    <button id="deleteBookBtn" class="text-sm text-red-500 hover:text-red-700">🗑️ Excluir</button>
+                </div>
+            </div>
+
+            <textarea id="bookContent" class="writing-area w-full bg-white/60 border border-amber-200 rounded-xl p-4 text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none text-base leading-relaxed"
+                placeholder="Comece a escrever sua história aqui... ✨"></textarea>
+        </section>
+
+        <!-- Botão Flutuante de Instalação -->
+        <div id="installPrompt" class="fixed bottom-6 right-6 z-50 hidden">
+            <button id="installBtn" class="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-violet-700 transition-all text-sm">
+                ⬇️ Instalar App
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ===== PWA Service Worker =====
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('✅ App pronto para usar offline!'));
+        }
+
+        // ===== Botão de Instalação =====
+        let deferredPrompt;
+        const installPrompt = document.getElementById('installPrompt');
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installPrompt.classList.remove('hidden');
+        });
+
+        installBtn.addEventListener('click', async () => {
+            deferredPrompt?.prompt();
+            const { outcome } = await deferredPrompt?.userChoice || {};
+            deferredPrompt = null;
+            installPrompt.classList.add('hidden');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            installPrompt.classList.add('hidden');
+        });
+
+        // ===== LÓGICA DO APP =====
+        const MAX_BOOKS = 5;
+        let books = [];
+        let currentBookId = null;
+
+        // Elementos
+        const booksScreen = document.getElementById('booksScreen');
+        const editorScreen = document.getElementById('editorScreen');
+        const booksList = document.getElementById('booksList');
+        const newBookBtn = document.getElementById('newBookBtn');
+        const backBtn = document.getElementById('backBtn');
+        const bookTitle = document.getElementById('bookTitle');
+        const bookSubtitle = document.getElementById('bookSubtitle');
+        const bookContent = document.getElementById('bookContent');
+        const lastSaved = document.getElementById('lastSaved');
+        const exportBtn = document.getElementById('exportBtn');
+        const deleteBookBtn = document.getElementById('deleteBookBtn');
+
+        // Carregar livros do localStorage
+        function loadBooks() {
+            const saved = localStorage.getItem('storyBooks');
+            books = saved ? JSON.parse(saved) : [];
+            renderBooks();
+            newBookBtn.disabled = books.length >= MAX_BOOKS;
+            if (books.length >= MAX_BOOKS) {
+                newBookBtn.textContent = `Limite de ${MAX_BOOKS} livros atingido`;
+            } else {
+                newBookBtn.textContent = '+ Novo Livro';
+            }
+        }
+
+        function saveBooks() {
+            localStorage.setItem('storyBooks', JSON.stringify(books));
+        }
+
+        function renderBooks() {
+            if (books.length === 0) {
+                booksList.innerHTML = `
+                    <div class="text-center py-12 text-amber-600">
+                        <p class="text-4xl mb-3">✏️</p>
+                        <p>Nenhum livro ainda. Comece sua primeira história!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            booksList.innerHTML = books.map(book => `
+                <div class="book-card bg-white rounded-xl shadow-sm border border-amber-100 p-5 cursor-pointer hover:shadow-md"
+                     onclick="openBook('${book.id}')">
+                    <h3 class="text-lg font-bold text-violet-800">${escapeHtml(book.title || 'Sem título')}</h3>
+                    <p class="text-sm text-amber-600 mt-1 italic">${escapeHtml(book.subtitle || '')}</p>
+                    <p class="text-xs text-gray-400 mt-3">Última edição: ${formatDate(book.updatedAt)}</p>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+        }
+
+        function showEditor(book = null) {
+            currentBookId = book ? book.id : null;
+            bookTitle.value = book ? book.title : '';
+            bookSubtitle.value = book ? book.subtitle || '' : '';
+            bookContent.value = book ? book.content : '';
+            lastSaved.textContent = book ? `Última edição: ${formatDate(book.updatedAt)}` : 'Ainda não salvo';
+            booksScreen.classList.add('hidden');
+            editorScreen.classList.remove('hidden');
+            bookTitle.focus();
+        }
+
+        function showBooks() {
+            editorScreen.classList.add('hidden');
+            booksScreen.classList.remove('hidden');
+            currentBookId = null;
+            loadBooks();
+        }
+
+        function createNewBook() {
+            if (books.length >= MAX_BOOKS) {
+                alert(`Você já tem ${MAX_BOOKS} livros. Exclua um antes de criar outro.`);
+                return;
+            }
+            showEditor();
+        }
+
+        function openBook(id) {
+            const book = books.find(b => b.id === id);
+            if (book) showEditor(book);
+        }
+
+        function saveCurrentBook() {
+            const title = bookTitle.value.trim() || 'Sem Título';
+            const subtitle = bookSubtitle.value.trim();
+            const content = bookContent.value;
+
+            if (currentBookId) {
+                // Atualizar existente
+                const idx = books.findIndex(b => b.id === currentBookId);
+                if (idx !== -1) {
+                    books[idx] = { ...books[idx], title, subtitle, content, updatedAt: new Date().toISOString() };
+                }
+            } else {
+                // Criar novo
+                const newBook = {
+                    id: Date.now().toString(),
+                    title,
+                    subtitle,
+                    content,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                books.unshift(newBook);
+                currentBookId = newBook.id;
+            }
+
+            saveBooks();
+            lastSaved.textContent = '✓ Salvo agora mesmo';
+        }
+
+        function deleteCurrentBook() {
+            if (!currentBookId) { showBooks(); return; }
+            if (!confirm('Tem certeza que deseja excluir este livro? Esta ação não pode ser desfeita.')) return;
+            books = books.filter(b => b.id !== currentBookId);
+            saveBooks();
+            showBooks();
+        }
+
+        function exportCurrentBook() {
+            const title = bookTitle.value.trim() || 'Sem Título';
+            const subtitle = bookSubtitle.value.trim();
+            const content = bookContent.value;
+            
+            let text = title + "\n";
+            if (subtitle) text += subtitle + "\n";
+            text += "=".repeat(40) + "\n\n";
+            text += content;
+
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = title.replace(/[^a-záéíóúàèìòùãõçA-Z0-9\s]/g, '').replace(/\s+/g, '_') + '.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Auto-save com debounce
+        let saveTimer;
+        function scheduleAutoSave() {
+            lastSaved.textContent = 'Salvando...';
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveCurrentBook, 800);
+        }
+
+        // Eventos
+        newBookBtn.addEventListener('click', createNewBook);
+        backBtn.addEventListener('click', () => {
+            if (currentBookId || bookTitle.value.trim() || bookContent.value.trim()) {
+                saveCurrentBook();
+            }
+            showBooks();
+        });
+        bookTitle.addEventListener('input', scheduleAutoSave);
+        bookSubtitle.addEventListener('input', scheduleAutoSave);
+        bookContent.addEventListener('input', scheduleAutoSave);
+        deleteBookBtn.addEventListener('click', deleteCurrentBook);
+        exportBtn.addEventListener('click', exportCurrentBook);
+
+        // Disponibilizar funções globalmente
+        window.openBook = openBook;
+
+        // Inicializar
+        loadBooks();
+        
+        
+        let deferredPrompt;
+const btnInstalar = document.getElementById('btnInstalar');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Impede que o mini-infobar padrão do Chrome apareça automaticamente
+  e.preventDefault();
+  // Guarda o evento para acioná-lo depois
+  deferredPrompt = e;
+  // Mostra o seu botão personalizado
+  btnInstalar.style.display = 'block';
+});
+
+btnInstalar.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  // Exibe o prompt nativo de instalação
+  deferredPrompt.prompt();
+  // Espera a escolha do usuário
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    console.log('Usuário aceitou a instalação');
+  }
+  deferredPrompt = null;
+  btnInstalar.style.display = 'none';
+});
+
+// Opcional: esconder o botão se o app já estiver instalado
+window.addEventListener('appinstalled', () => {
+  btnInstalar.style.display = 'none';
+  deferredPrompt = null;
+  console.log('Aplicativo instalado com sucesso!');
+});
+
+        
+        
+    </script>
+</body>
+</html>
