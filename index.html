@@ -21,12 +21,9 @@
         }
         .hidden { display: none !important; }
     </style>
-    <script async src="https://ss.mrmnd.com/dynamic.js" data-mnddynid="bdbe0354-da19-478e-8b11-ddf83b61d770"></script>
 </head>
 <body class="bg-amber-50 text-gray-800 min-h-screen">
     <div class="max-w-2xl mx-auto px-4 py-6 pb-24">
-        
-
         <!-- Cabeçalho -->
         <header class="text-center mb-8">
             <h1 class="text-3xl font-bold text-violet-800">📖 Meu Caderno de Histórias</h1>
@@ -86,40 +83,6 @@
         </div>
     </div>
 
-   <!-- <script>
-let deferredPrompt;
-const btnInstalar = document.getElementById('btnInstalar');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Impede que o mini-infobar padrão do Chrome apareça automaticamente
-  e.preventDefault();
-  // Guarda o evento para acioná-lo depois
-  deferredPrompt = e;
-  // Mostra o seu botão personalizado
-  btnInstalar.style.display = 'block';
-});
-
-btnInstalar.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  // Exibe o prompt nativo de instalação
-  deferredPrompt.prompt();
-  // Espera a escolha do usuário
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') {
-    console.log('Usuário aceitou a instalação');
-  }
-  deferredPrompt = null;
-  btnInstalar.style.display = 'none';
-});
-
-// Opcional: esconder o botão se o app já estiver instalado
-window.addEventListener('appinstalled', () => {
-  btnInstalar.style.display = 'none';
-  deferredPrompt = null;
-  console.log('Aplicativo instalado com sucesso!');
-});
-
-    </script> -->
     <script>
         // ===== PWA Service Worker =====
         if ('serviceWorker' in navigator) {
